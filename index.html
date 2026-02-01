@@ -4,117 +4,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>قياس مساحة السقف</title>
+    <title>قياس مساحة السقف (مضلع حر)</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            background: #0a0a0a;
-            overflow: hidden;
-            touch-action: none;
-        }
-
-        #video {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            object-fit: cover;
-        }
-
-        #canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            touch-action: none;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: Arial, sans-serif; background: #0a0a0a; overflow: hidden; touch-action: none; }
+        #video { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; }
+        #canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; touch-action: none; }
+        
         .info {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 15px 30px;
-            border-radius: 25px;
-            font-size: 18px;
-            text-align: center;
-            z-index: 100;
-            backdrop-filter: blur(10px);
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8); color: white; padding: 10px 20px;
+            border-radius: 20px; font-size: 16px; text-align: center; z-index: 100;
+            backdrop-filter: blur(5px); width: 90%; max-width: 400px;
         }
 
         .area {
-            position: fixed;
-            bottom: 120px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            padding: 20px 40px;
-            border-radius: 20px;
-            font-size: 32px;
-            font-weight: bold;
-            z-index: 100;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+            background: linear-gradient(135deg, #667eea, #764ba2); color: white;
+            padding: 15px 30px; border-radius: 15px; font-size: 28px; font-weight: bold;
+            z-index: 100; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); white-space: nowrap;
         }
 
         .controls {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 15px;
-            z-index: 100;
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 10px; z-index: 100; width: 90%; max-width: 400px; justify-content: center;
         }
 
         button {
-            padding: 18px 40px;
-            font-size: 20px;
-            font-weight: bold;
-            border: none;
-            border-radius: 15px;
-            cursor: pointer;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-            transition: transform 0.2s;
+            flex: 1; padding: 15px; font-size: 18px; font-weight: bold; border: none;
+            border-radius: 12px; cursor: pointer; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            transition: transform 0.1s;
         }
-
-        button:active {
-            transform: scale(0.95);
-        }
-
-        .btn-main {
-            background: white;
-            color: #667eea;
-        }
-
-        .btn-clear {
-            background: #ff6b6b;
-            color: white;
-        }
+        button:active { transform: scale(0.95); }
+        .btn-main { background: white; color: #667eea; }
+        .btn-clear { background: #ff6b6b; color: white; }
     </style>
 </head>
 
 <body>
-    <video id="video" autoplay playsinline></video>
+    <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas"></canvas>
 
-    <div class="info" id="info">اضغط "ابدأ" لإنشاء المستطيل</div>
-    <div class="area" id="area">0 م²</div>
+    <div class="info" id="info">اضغط "ابدأ" ثم اسحب الزوايا لتطابق السقف</div>
+    <div class="area" id="area">0.00 م²</div>
 
     <div class="controls">
-        <button class="btn-main" id="btnStart">ابدأ</button>
-        <button class="btn-clear" id="btnClear">مسح</button>
+        <button class="btn-main" id="btnStart">ابدأ الكاميرا</button>
+        <button class="btn-clear" id="btnClear">إعادة تعيين</button>
     </div>
 
     <script>
@@ -126,260 +62,220 @@
         const btnStart = document.getElementById('btnStart');
         const btnClear = document.getElementById('btnClear');
 
-        // Setup canvas
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        // إعداد الكانفاس
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            if(polygon) draw();
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
 
-        // State
-        let rectangle = null;
-        let dragging = null;
+        // الحالة (State)
+        let polygon = null; // المضلع بدلاً من المستطيل
+        let draggingPoint = null; // النقطة التي يتم سحبها
         let cameraActive = false;
+        
+        // معامل التحويل (هام جداً: هذا الرقم افتراضي)
+        // في الواقع نحتاج ARKit/ARCore لحساب العمق بدقة.
+        // هنا نفترض أن كل 100 بكسل تعادل 1 متر تقريباً.
+        const PIXELS_PER_METER = 100; 
 
-        // Rectangle structure
-        function createRectangle() {
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            const w = 300; // pixels
-            const h = 400;
+        // إنشاء المضلع الافتراضي (مربع في المنتصف)
+        function createPolygon() {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const size = 150; 
 
-            return {
-                x: centerX - w / 2,
-                y: centerY - h / 2,
-                width: w,
-                height: h,
-                corners: [
-                    { x: centerX - w / 2, y: centerY - h / 2, name: 'أعلى يسار' },
-                    { x: centerX + w / 2, y: centerY - h / 2, name: 'أعلى يمين' },
-                    { x: centerX - w / 2, y: centerY + h / 2, name: 'أسفل يسار' },
-                    { x: centerX + w / 2, y: centerY + h / 2, name: 'أسفل يمين' }
-                ]
-            };
+            return [
+                { x: cx - size, y: cy - size }, // أعلى يسار
+                { x: cx + size, y: cy - size }, // أعلى يمين
+                { x: cx + size, y: cy + size }, // أسفل يمين
+                { x: cx - size, y: cy + size }  // أسفل يسار
+            ];
         }
 
-        // Calculate area (assuming 100 pixels = 1 meter for demo)
-        function calculateArea() {
-            if (!rectangle) return 0;
-            const widthMeters = rectangle.width / 100;
-            const heightMeters = rectangle.height / 100;
-            return (widthMeters * heightMeters).toFixed(2);
+        // خوارزمية "رباط الحذاء" (Shoelace Formula) لحساب مساحة أي مضلع
+        function calculatePolygonArea(points) {
+            let area = 0;
+            const n = points.length;
+            
+            for (let i = 0; i < n; i++) {
+                const j = (i + 1) % n;
+                // تحويل الإحداثيات من بكسل إلى متر قبل الضرب
+                const x_i = points[i].x / PIXELS_PER_METER;
+                const y_i = points[i].y / PIXELS_PER_METER;
+                const x_j = points[j].x / PIXELS_PER_METER;
+                const y_j = points[j].y / PIXELS_PER_METER;
+                
+                area += x_i * y_j;
+                area -= x_j * y_i;
+            }
+            
+            return (Math.abs(area) / 2).toFixed(2);
         }
 
-        // Draw rectangle
+        // دالة الرسم
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            if (!rectangle) return;
+            if (!polygon) return;
 
-            // Draw rectangle
-            ctx.fillStyle = 'rgba(102, 126, 234, 0.2)';
-            ctx.fillRect(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
-
+            // رسم الشكل المظلل
+            ctx.beginPath();
+            ctx.moveTo(polygon[0].x, polygon[0].y);
+            for (let i = 1; i < polygon.length; i++) {
+                ctx.lineTo(polygon[i].x, polygon[i].y);
+            }
+            ctx.closePath();
+            
+            ctx.fillStyle = 'rgba(102, 126, 234, 0.25)';
+            ctx.fill();
+            
             ctx.strokeStyle = '#667eea';
-            ctx.lineWidth = 4;
-            ctx.strokeRect(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
+            ctx.lineWidth = 3;
+            ctx.stroke();
 
-            // Draw grid
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.lineWidth = 1;
-            const gridSize = 50;
+            // رسم خطوط الشبكة الوهمية داخل الشكل (اختياري - لجمالية الشكل)
+            // (تم إزالتها لتبسيط الكود ودعم الأشكال غير المنتظمة)
 
-            for (let i = gridSize; i < rectangle.width; i += gridSize) {
+            // رسم الزوايا (النقاط)
+            polygon.forEach((p, i) => {
                 ctx.beginPath();
-                ctx.moveTo(rectangle.x + i, rectangle.y);
-                ctx.lineTo(rectangle.x + i, rectangle.y + rectangle.height);
-                ctx.stroke();
-            }
-
-            for (let i = gridSize; i < rectangle.height; i += gridSize) {
-                ctx.beginPath();
-                ctx.moveTo(rectangle.x, rectangle.y + i);
-                ctx.lineTo(rectangle.x + rectangle.width, rectangle.y + i);
-                ctx.stroke();
-            }
-
-            // Draw corners (bigger for easier touch)
-            rectangle.corners.forEach((corner, i) => {
-                // White circle
+                ctx.arc(p.x, p.y, 15, 0, Math.PI * 2);
                 ctx.fillStyle = 'white';
-                ctx.beginPath();
-                ctx.arc(corner.x, corner.y, 25, 0, Math.PI * 2);
                 ctx.fill();
-
-                // Blue inner
-                ctx.fillStyle = dragging === i ? '#ff6b6b' : '#667eea';
-                ctx.beginPath();
-                ctx.arc(corner.x, corner.y, 20, 0, Math.PI * 2);
-                ctx.fill();
+                
+                // النقطة النشطة
+                if (draggingPoint === i) {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 15, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ff6b6b';
+                    ctx.fill();
+                }
+                
+                ctx.strokeStyle = '#667eea';
+                ctx.lineWidth = 2;
+                ctx.stroke();
             });
 
-            // Draw dimensions
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 18px Arial';
+            // تحديث عرض المساحة
+            const area = calculatePolygonArea(polygon);
+            areaDisplay.textContent = `${area} م²`;
+            
+            // رسم الأبعاد (الأطوال) بين النقاط
+            ctx.fillStyle = '#fff';
+            ctx.font = '14px Arial';
             ctx.textAlign = 'center';
-
-            // Width (top)
-            const widthText = `${(rectangle.width / 100).toFixed(2)} م`;
-            ctx.fillText(widthText, rectangle.x + rectangle.width / 2, rectangle.y - 15);
-
-            // Height (left)
-            const heightText = `${(rectangle.height / 100).toFixed(2)} م`;
-            ctx.save();
-            ctx.translate(rectangle.x - 20, rectangle.y + rectangle.height / 2);
-            ctx.rotate(-Math.PI / 2);
-            ctx.fillText(heightText, 0, 0);
-            ctx.restore();
+            ctx.textBaseline = 'middle';
+            
+            for (let i = 0; i < polygon.length; i++) {
+                const p1 = polygon[i];
+                const p2 = polygon[(i + 1) % polygon.length];
+                
+                const midX = (p1.x + p2.x) / 2;
+                const midY = (p1.y + p2.y) / 2;
+                
+                // المسافة (فيثاغورس)
+                const distPixels = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                const distMeters = (distPixels / PIXELS_PER_METER).toFixed(2);
+                
+                ctx.fillText(`${distMeters} م`, midX, midY);
+            }
         }
 
-        // Touch/Mouse handlers
-        function getTouch(e) {
+        // التعامل مع اللمس والماوس
+        function getPos(e) {
             const touch = e.touches ? e.touches[0] : e;
-            return {
-                x: touch.clientX,
-                y: touch.clientY
-            };
+            return { x: touch.clientX, y: touch.clientY };
         }
 
-        function findCorner(x, y) {
-            if (!rectangle) return -1;
+        function isNearPoint(x, y, p) {
+            return Math.hypot(x - p.x, y - p.y) < 40; // نصف قطر اللمس
+        }
 
-            for (let i = 0; i < rectangle.corners.length; i++) {
-                const corner = rectangle.corners[i];
-                const dx = x - corner.x;
-                const dy = y - corner.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                if (dist < 40) { // Touch radius
-                    return i;
+        function handleStart(e) {
+            e.preventDefault(); // منع التمرير
+            if (!polygon) return;
+            
+            const pos = getPos(e);
+            
+            // البحث عن أقرب نقطة تم الضغط عليها
+            for (let i = 0; i < polygon.length; i++) {
+                if (isNearPoint(pos.x, pos.y, polygon[i])) {
+                    draggingPoint = i;
+                    info.textContent = 'حرّك الزاوية لمطابقة السقف';
+                    draw();
+                    return;
                 }
             }
-            return -1;
         }
 
-        canvas.addEventListener('mousedown', start);
-        canvas.addEventListener('touchstart', start);
-
-        function start(e) {
+        function handleMove(e) {
             e.preventDefault();
-            const pos = getTouch(e);
-            const cornerIndex = findCorner(pos.x, pos.y);
+            if (draggingPoint === null || !polygon) return;
 
-            if (cornerIndex >= 0) {
-                dragging = cornerIndex;
-                info.textContent = `اسحب لتغيير الحجم`;
-            }
-        }
-
-        canvas.addEventListener('mousemove', move);
-        canvas.addEventListener('touchmove', move);
-
-        function move(e) {
-            if (dragging === null || !rectangle) return;
-            e.preventDefault();
-
-            const pos = getTouch(e);
-            const corner = rectangle.corners[dragging];
-            corner.x = pos.x;
-            corner.y = pos.y;
-
-            // Update rectangle bounds
-            const xs = rectangle.corners.map(c => c.x);
-            const ys = rectangle.corners.map(c => c.y);
-            rectangle.x = Math.min(...xs);
-            rectangle.y = Math.min(...ys);
-            rectangle.width = Math.max(...xs) - rectangle.x;
-            rectangle.height = Math.max(...ys) - rectangle.y;
-
-            // Update area display
-            areaDisplay.textContent = calculateArea() + ' م²';
-
+            const pos = getPos(e);
+            
+            // تحديث مكان النقطة فقط (حركة حرة)
+            polygon[draggingPoint].x = pos.x;
+            polygon[draggingPoint].y = pos.y;
+            
             draw();
         }
 
-        canvas.addEventListener('mouseup', end);
-        canvas.addEventListener('touchend', end);
-
-        function end(e) {
-            if (dragging !== null) {
-                dragging = null;
-                info.textContent = `المساحة: ${calculateArea()} م²`;
+        function handleEnd(e) {
+            if (draggingPoint !== null) {
+                draggingPoint = null;
+                const area = calculatePolygonArea(polygon);
+                info.textContent = `المساحة الحالية: ${area} م²`;
+                draw();
             }
         }
 
-        // Start button
+        // مستمعات الأحداث
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('touchstart', handleStart, { passive: false });
+        
+        canvas.addEventListener('mousemove', handleMove);
+        canvas.addEventListener('touchmove', handleMove, { passive: false });
+        
+        canvas.addEventListener('mouseup', handleEnd);
+        canvas.addEventListener('touchend', handleEnd);
+
+        // تشغيل الكاميرا
         btnStart.addEventListener('click', async () => {
-            // Try camera (asks for permission)
+            if (!polygon) {
+                polygon = createPolygon();
+                draw();
+            }
+
             if (!cameraActive) {
                 try {
-                    info.textContent = 'جاري طلب إذن الكاميرا...';
-
+                    info.textContent = 'جاري تشغيل الكاميرا...';
                     const stream = await navigator.mediaDevices.getUserMedia({
-                        video: {
-                            facingMode: 'environment',
-                            width: { ideal: 1920 },
-                            height: { ideal: 1080 }
-                        }
+                        video: { facingMode: 'environment' }
                     });
-
                     video.srcObject = stream;
                     cameraActive = true;
-                    info.textContent = '✓ الكاميرا نشطة - وجّه للسقف';
-
+                    info.textContent = 'اضبط الزوايا الأربعة على حدود السقف';
                 } catch (err) {
-                    cameraActive = false;
-                    video.style.display = 'none';
-                    canvas.style.background = 'linear-gradient(135deg, #1a1a2e, #0f0f1e)';
-
-                    // Show specific error
-                    if (err.name === 'NotAllowedError') {
-                        info.textContent = '⚠️ رفضت السماح للكاميرا';
-                    } else if (err.name === 'NotFoundError') {
-                        info.textContent = '⚠️ لا توجد كاميرا';
-                    } else if (err.name === 'NotSupportedError') {
-                        info.textContent = '⚠️ يحتاج HTTPS';
-                    } else {
-                        info.textContent = '⚠️ خطأ: ' + err.message;
-                    }
-
-                    console.error('Camera error:', err.name, err.message);
+                    console.error(err);
+                    info.textContent = 'تعذر الوصول للكاميرا (تأكد من HTTPS)';
+                    // نستمر حتى بدون كاميرا كوضع "رسم"
                 }
             }
-
-            // Create rectangle (always works)
-            if (!rectangle) {
-                rectangle = createRectangle();
-                areaDisplay.textContent = calculateArea() + ' م²';
-                draw();
-
-                setTimeout(() => {
-                    if (cameraActive) {
-                        info.textContent = '👆 اسحب الزوايا - الكاميرا نشطة';
-                    } else {
-                        info.textContent = '👆 اسحب الزوايا';
-                    }
-                }, 2000);
-            }
         });
 
-        // Clear button
+        // زر إعادة التعيين
         btnClear.addEventListener('click', () => {
-            rectangle = null;
-            dragging = null;
-            areaDisplay.textContent = '0 م²';
-            info.textContent = 'تم المسح - اضغط "ابدأ"';
+            polygon = createPolygon(); // إعادة الشكل للوضع الافتراضي
+            info.textContent = 'تمت إعادة التعيين';
             draw();
         });
 
-        // Resize handler
-        window.addEventListener('resize', () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            draw();
-        });
-
-        // Initial draw
-        draw();
-        console.log('✓ جاهز');
+        // الرسم الأولي
+        info.textContent = 'اضغط "ابدأ الكاميرا" للبدء';
     </script>
 </body>
-
 </html>
